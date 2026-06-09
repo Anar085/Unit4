@@ -114,4 +114,288 @@ This UML Class diagram shows the proposed system is organized into logical packa
 | **6.3** | To ensure administrators can manage the global add-on catalog and that approval is robust. | 1. Log in as `admin_user` and navigate to "Manage Addons". <br>2. Confirm "Test Livery" appears in the "Approved Addons" table.<br>3. Log out and log in as `user_high` and view the `/user_main` page.<br>4. Log in as `admin_user`, go to "Manage Addons", and click "Remove" for "Test Livery".<br>5. Log in as `user_high` one last time and view the `/user_main` page. | 1. Verify "Test Livery" is visible to the admin after step 2.<br>2. Verify "Test Livery" is now visible to the regular user after step 3.<br>3. Verify after step 4 that "Test Livery" is gone from the `Addons` table.<br>4. Verify after step 5 that "Test Livery" is no longer visible to the user. | Pass |
 
 
+# Criteria C: Development
+
+## List of techniques used
+
+1. *Recursive graph traversal using Graph Theory* 
+2. *Multi-Step Installation workflow*
+3. *Data visualization on Polar Coordinates* 
+4. *Min-Max Normalization* 
+5. *Connection between Frontend and Backend*
+
+### 1.  *Recursive graph traversal using Graph Theory*
+To solve **SC#3.1** and **SC#3.2**, I had to handle add-on dependencies, that is, they rely on each other to function properly. For example, Emirates A380 Livery pack is dependent on latest version of Enhanced A380 aircraft pack, whereas Dubai Intl Airport scenery pack requires Emirates A380 Livery pack, and etc. To detect these problems before installation, at first, I attempted to use If-statements and loops. But then I encountered more complex dependencies examples where they had multiple transitive dependencies, or cycles where some add-ons indirectly depend on itself. These complexities made If-statements and loops useless, so to manage these dependencies I researched graph-based solutions[^9]. After research I learned about *Depth-First Search* and its use for topological sorting in graph theory[^10]. Through DFS and recursion stack, now I could track all visited nodes in a directed graph which represents the dependencies as a tree. First, I created *`DependencyGraph`* class because it can make all attributes and methods used for graphs reusable and structured:
+
+```.py
+class DependencyGraph:
+   def __init__(self): #initializing attributes
+       self.graph={}  #dictionary for holding the graph adjacency list
+       self.resolved_cache={}  #dictionary to hold already resolved dependencies
+
+```
+
+Then I created *`add_dependecy()`* function (for reusability) to add dependency relationships to graph.
+
+```.py
+def add_dependency(self,addon_id,dependency_id):
+   if addon_id not in self.graph:
+       self.graph[addon_id]=set()  #Line 7
+   self.graph[addon_id].add(dependency_id)  #adding dependency to graph
+   self.resolved_cache.clear()  #clearing cache since graph is modified
+
+```
+
+In line 7, I used *`set()`* - python data structure, as it automatically prevents duplicate dependencies. Then, I created *`build_from_addons()`* function to build the graph using the list of add-ons.
+
+```.py
+def build_from_addons(self,addons):
+   self.graph.clear()  #reseting the graph
+   self.resolved_cache.clear()  #clearing cache
+   for addon in addons:
+       for dep_id in addon.dependencies.keys():  #iterating over each dependency
+           self.add_dependency(addon.id,dep_id)  #adding it to the graph
+
+```
+
+Then, for managing special case, cycle dependency, I coded function *`detect_cycles()`* which uses the concept *Depth-First Search* to detect and return the list of cycles.
+
+```.py
+def detect_cycles(self):
+   visited=set()  #set to track visited nodes
+   rec_stack=set()  #set to track recursion stack
+   cycles =[]  #list to keep detected cycles
+
+     def dfs_cycle_detect(node,path):   #function for reusability that returns True or False
+       if node in rec_stack:          
+           cycle_start=path.index(node)  #determining start index of cycle
+           cycle=path[cycle_start:]+ [node]  #extracting the cycle path
+           cycles.append(cycle)  #stores detected cycle
+           return True
+       if node in visited:
+           return False  #avoiding redundant visits
+       visited.add(node)  #marking the current node as visited using built-in function add() to avoid overwriting it in other paths
+       rec_stack.add(node)  #adding the node to the current recursion (call) stack to help detect cycles using built-in function add()
+       path.append(node)     #adding the node to the path being tracked so I can reconstruct a cycle if one is found using built-in function append()
+       for neighbor in self.graph.get(node,set()):
+           if dfs_cycle_detect(neighbor,path):  #recursing over the dependencies to detect a cycle
+               return True
+       rec_stack.remove(node)   #exiting the node context
+       path.pop()              #removes the step from path history
+       return False
+
+   for node in self.graph:  #running DFS from each unvisited node
+       if node not in visited:
+           dfs_cycle_detect(node,[])
+   return cycles  # Return list of cycles
+
+```
+
+This function first defines **visited** and **rec_stack** sets and a **cycles** list. There is an inner recursive function **dfs_cycle_detect()** to implement Depth-First Search (DFS) which inputs **node** and **path**. First, by an `if`-statement, it checks if the current **node** is already in **rec_stack** to verify whether that **node** is part of the current traversal path. If so, first it gets the start index of the cycle by the built-in function **index()**. Then, by using *list slicing* in `path[cycle_start:]`, it extracts the part of **path**, starting from index **cycle_start** till the end (as the destination index is not mentioned). By using `+ [node]`, it appends the current node to the end to visualize the cycle (for example: `A->B->C->A`). It then uses an `if`-statement to avoid redundant visits. Through the next three lines, the function maintains the state of traversal in DFS. Then, by using a `for`-loop and the **.get()** method—which is a safe way to access the dictionary **self.graph** where keys are nodes and values are a `set` of its dependencies—as instead of a `KeyError` it returns the default value `set`, it iterates over all nodes that the current node depends on. Then, as the main part of DFS, I used an `if`-statement to recursively call the function **dfs_cycle_detect()** on every neighbor of the main node. The function **dfs_cycle_detect()** finalizes after exiting the node and clearing the path history. Ultimately, the function **detect_cycles()** finalizes by implementing DFS for each unvisited node using a `for`-loop and returning the list of detected cycles.
+
+<img width="979" height="847" alt="cs_ia_3" src="https://github.com/user-attachments/assets/acc4c303-ab7e-42de-a021-b2a7c5106165" />
+
+**Figure 7** *This flowchart represents the *`detect_conflicts()`* function from `Version_Mismatch_Strategy` class.*
+
+<img width="762" height="859" alt="cs_ia_2" src="https://github.com/user-attachments/assets/2e2466ce-43ac-4e6e-8f53-ed7ad890f696" />
+
+**Figure 8** *This flowchart represents the `detect_cycles()` function from `Dependency_Graph` class, which detects dependency cycles in a graph using depth-first search (DFS).*
+
+
+[^9]: https://www.geeksforgeeks.org/graph-theory-tutorial/.
+[^10]: https://kivy.org/doc/stable/api-kivy.properties.html](https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/.
+
+
+### 2.  *Multi-Step Installation workflow*
+
+To solve **SC#3.2**, which requires clear suggestions for installation conflicts, I first tried to use *if-else* statements to create a simple “check-then-install” process. It was insufficient as users had to go through a series of sequential decisions without losing context. To solve this, I designed a multi-step installation workflow through a single backend route `/install_step`. This endpoint receives the current `step` (either `'version_check'`, `'dependency_check'`, or `'library_check'`) and a payload, then returns a JSON object that contains the instructions for the next step with specific dialog to show the user.
+
+
+```.py
+app.route('/install_step',methods=['POST'])
+def install_step():
+   data=request.get_json()
+   step=data.get('step')
+   # ...
+   if step=='version_check':
+       # processing version
+       return jsonify({
+           "next_step":"dependency_check", #  instruction for the next step
+           "dialog": {...}               # data for the next UI dialog
+       })
+   elif step=='dependency_check':
+       #  processing dependencies
+       return jsonify({
+           # a special instruction for the frontend to take over
+           "next_step":"user_confirm_dependency_versions",
+           "dependency_chain": dependency_chain
+       })
+   # ... etc.
+
+```
+
+As the user waits for the system to determine the dependencies, the frontend could not handle the interactive dependency version check. So to solve this, a special **next_step** instruction, **user_confirm_dependency_versions**, is sent. This triggers a unique client-side function that iterates through the dependency chain and uses JavaScript’s *async/await* with *Promise*-based dialog. This pauses the system, waits for the user to click one of the buttons, only then continues to the final **library_check** step[^11].
+
+```.js
+// here, the frontend pauses the workflow to wait for user input
+async function runUserDependencyVersionChecks(chain, userLibraryId) {
+   for (const dep of chain) {
+       // version_check logic ...
+       if (userMsfsVersion<minMsfs) {
+           // the 'await' keyword pauses the function here until the user clicks a button
+           const userChoice = await showPromiseDialog({...});
+           if (userChoice==='Cancel') return; // aborting the entire process
+       }
+   }
+   // only proceeding after the loop is complete
+   const finalChoice=await showPromiseDialog({ ... });
+   if (finalChoice==='Install') {
+       sendInstallStep('library_check', ...); // resuming the workflow
+   }
+}
+```
+
+### 3.  *Data visualization on Polar Coordinates*
+
+To address **SC#4**, which requires aircraft metrics visualization, I had to compare metrics such as max speed, range, MTOW, and fuel capacity. At first, I tried implementing *barcharts*, but as I am comparing more than *three metrics* of aircrafts, *barcharts* were hard to read and compare for choosing based on the most desirable metrics. To solve this issue, I researched about data visualization techniques for *multivariate* data [^12], as aircraft data contains, at each sample point, multiple scalar values that represent different simulated or measured quantities, and found about *radar charts* [^13]. Radar charts represent attributes that can be easily compared each along their own axis, and overall differences are apparent by the size and shape of the polygons. To implement this, I coded the method **create_Radar_Chart**:
+
+```.js
+create_Radar_Chart() {
+    const container=d3.select('#chartContainer'); //selecting the chart container div where the radar chart will be drawn using d3 library
+    const size=Math.min(this.dimensions.width,this.dimensions.height);
+//determining the base size for the chart by picking smaller of width or height by using min() function
+    const radius=size/2-100; //calculateing the radius of the radar chart
+    const svg=container.append('svg')  //appending an SVG element to the container and seting its width and height
+        .attr('width',size+200)
+        .attr('height',size+100); //extra space for labels or padding
+
+    const g=svg.append('g')
+        .attr('transform', `translate(${size/2 + 100},${size/2 + 50})`); //appending a <g> element (group) to the SVG and translating it to the center of the chart area
+}
+```
+Here `d3.select()`, `.append`, and `.attr` are parts of *D3.js library*. But to transform normalized aircraft metrics to coordinates on a radar chart I had to use maths to convert from *polar* to *Cartesian* coordinates, as radar charts are using *radial* plot, not *rectangular*.
+
+```.js
+const angleSlice=Math.PI *2/this.activeAttributes.length;
+```
+This line calculates the angular spacing, as full circle is $2\pi$, dividing it by the number of attributes gives equal angle spacings. `this.activeAttributes` is an array storing the metrics and `.length` finds the number of elements in that array.
+
+```.js
+const radialScale=d3.scaleLinear().domain([0,100]).range([0,radius]); //mapping metric magnitudes to radius
+```
+Here `d3.scaleLinear()` is a linear mapping function and `.domain([0,100])` is for input data range, from 0% to 100%. Then `.range([0,radius])` limits the range from center to edge, for example, if given `radialScale(60)`, it will return pixel distance related to 60% of radius. Then for *data points* in radar charts I did the conversions using `Math.cos()` and `Math.sin()` for *Cartesian* $(x,y)$[^14].
+
+```.js
+//setting the x-coordinate (cx) of each data point using polar to Cartesian conversion
+.attr('cx',(d,i)=> {
+    const angle=angleSlice*i - Math.PI/2; //calculating angle for current axis; -π/2 rotates first axis to top 
+    return Math.cos(angle)*radialScale(d.value); //converting angle to x using cosine; scale data value to pixel radius
+})
+//setting the y-coordinate (cy) of each data point using polar to Cartesian conversion
+.attr('cy',(d,i)=> {
+    const angle=angleSlice*i - Math.PI/2;  //using same angle logic to match x-coordinate rotation
+    return Math.sin(angle)*radialScale(d.value);  //converting angle to y using sine; scale data to radial distance
+})
+```
+Here by `.attr('cx', (d,i) =>` , each data point **d** at index **i** is mapped to radical axis by multiplying **i** by *angleSlice*.
+
+### 4.  *Min-Max Normalization*
+
+To address **SC#4**, I had to compare aircraft metrics. But as they are in different units and magnitudes, their raw comparison would be *unfair*. That is why, I decided to normalize all data in common range 0-100.
+
+
+```.js
+
+normalizeData(data) {
+   if (data.length===0) return [];  //checking if the input data array is empty; if so, return an empty array to avoid further processing
+
+   const attributes=['maxSpeed','range','mtow','fuelCapacity', 'climbrate']; //defining the list of numeric aircraft attributes that needs normalization
+
+   const normalized=data.map(d => ({ ...d }));
+//creating deep copy of each data object to avoid modifying the original array
+
+//looping over each attribute to normalize it independently  
+   attributes.forEach(attr => {
+       const values= data.map(d=>d[attr]); //extracting all values of the current attribute from the dataset into an array
+       const min=d3.min(values); 
+       const max=d3.max(values);   //computing maximum and minimum values of the current attribute using D3.js min and max function
+       const range=max - min;  //calculating the range (max - min) to use in normalization formula
+
+//looping over each data point to compute normalized values
+       normalized.forEach(d =>{
+           d[`${attr}_normalized`]=range > 0 ? (d[attr] - min) / range : 0; //adds a new property attr_normalized, this stores a decimal between 0 and 1 using the formula:(value - min)/range, if range is zero, fall back to 0 to avoid division by zero
+
+           d[`${attr}_percent`]=Math.round(d[`${attr}_normalized`] * 100);
+//adds another new property: attr_percent, this is the normalized value converted to a percentage and rounded
+       });
+   });
+//returns normalized dataset
+   return normalized;
+}
+
+```
+
+Here, `data.map(...)` iterates through each object **d** in **data** array and `({ ...d })` is a *spread operator* to clone each object for copying. More importantly, `d['${attr}_normalized']` creates a new property using *template literals*, which means it works generically across all attributes. Then `(d[attr] - min) / range` in `range > 0 ? (d[attr] - min) / range : 0` scales each value to 0-1 range; if range equals 0, it avoids division by zero and assigns 0 instead. Then by using `Math.round()`, `d[${attr}_percent] = Math.round(...)` creates a new property and converts it into percentage in range 0-100.
+
+### 5.  *Connection between Frontend and Backend*
+
+Fundamentally, as a web application, the system connects the frontend interface and backend using *Flask routes* and *HTTP requests*. The following code examples given demonstrate the interaction between the main backend *app.py* and an example frontend *mylib.html*. 
+
+
+```.py
+@app.route('/mylib_<int:user_id>')
+def mylib(user_id):
+    # Backend reads user data from the database
+    # and sends it to the frontend HTML template
+    return render_template('mylib.html',
+                           in_queue=in_queue_addons,
+                           installed=installed_addons,
+                           username=username,
+                           user_msfs_version=user_msfs_version)
+
+```
+
+
+```.html
+<!-- Frontend receives the data and displays it -->
+{% for addon in in_queue %}
+<tr>
+  <td>{{ addon[1] }}</td>
+</tr>
+{% endfor %}
+
+```
+When a user performs an action like removing an add-on, the frontend sends a request to the backend. 
+
+```.js
+// Frontend sends user action to backend route
+fetch('/simple_update_library', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ action: action, addon_id: userLibraryId })
+});
+
+```
+
+
+```.py
+@app.route('/simple_update_library', methods=['POST'])
+def simple_update_library():
+    #Backend receives request, updates database,
+    #then returns result to frontend
+    return jsonify({"status": "removed"})
+
+// Frontend reads backend response and updates UI
+if (result.status === 'removed') {
+    row.remove();
+}
+
+```
+
+Through these fundamental interactions the system completes as a whole: the frontend handles user interaction and the backend handles logic and database CRUD operations. 
+
+[^11]: https://reqbin.com/code/javascript/wc3qbk0b/javascript-fetch-json-example. 
+[^12]: https://aws.amazon.com/blogs/business-intelligence/visualize-multivariate-data-using-a-radar-chart-in-amazon-quicksight/.
+[^13]: www.cs.middlebury.edu/~candrews/showcase/infovis_techniques_s16/radar_chart/.
+[^14]: https://blog.cambridgecoaching.com/converting-polar-to-cartesian-equations-in-five-easy-steps. 
 
