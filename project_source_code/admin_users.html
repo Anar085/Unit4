@@ -1,0 +1,50 @@
+<!--admin_users.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="admin-body">
+    <div class="admin-header">
+        <h1>Manage Users</h1>
+        <div>
+            <a href="/admin_main" class="admin-btn main-menu-btn">Main Menu</a>
+            <a href="/login" classa="admin-btn logout-btn">Logout</a>
+        </div>
+    </div>
+    <div class="admin-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>MSFS Version</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ user[1] }}</td>
+                    <td>{{ user[2] }}</td>
+                    <td>{{ user[3] }}</td>
+                    <td>{{ user[4] }}</td>
+                    <td>{{ user[5] }}</td>
+                    <td>
+                        <form action="{{ url_for('remove_user', user_id=user[0]) }}" method="POST" onsubmit="return confirm('Are you sure you want to remove this user?');">
+                            <button type="submit" class="admin-btn-table remove-btn">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
