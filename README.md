@@ -1,4 +1,4 @@
-# Project 4: 
+# Project 4: MSFS Add-on Management Platform - Full-Stack Community Repository & Cyclic Dependency Resolver
 
 ## Criteria A: Planning
 
