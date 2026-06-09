@@ -1,0 +1,80 @@
+<!--admin_view_developer_library.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Submissions for {{ developer_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="admin-body">
+    <div class="admin-header">
+        <h1>Submissions for {{ developer_name }}</h1>
+        <div>
+            <a href="/admin_developers" class="admin-btn main-menu-btn">Back to Developers</a>
+            <a href="/login" class="admin-btn logout-btn">Logout</a>
+        </div>
+    </div>
+    <div class="admin-container">
+        <h2>Proposed Addons</h2>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>Title</th>
+                    <th>Version</th>
+                    <th>Proposed Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prop in proposed %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ prop[1] }}</td>
+                    <td>{{ prop[6] }}</td>
+                    <td>{{ prop[10] }}</td>
+                    <td class="action-cell">
+                        <a href="{{ url_for('static', filename='proposals/' + prop[3]) }}" class="admin-btn-table download-btn" download>Download</a>
+                        <form action="{{ url_for('handle_submission', dev_id=dev_id, sub_id=prop[0], action='approve') }}" method="POST" style="display:inline;">
+                            <button type="submit" class="admin-btn-table approve-btn">Approve</button>
+                        </form>
+                        <form action="{{ url_for('handle_submission', dev_id=dev_id, sub_id=prop[0], action='decline') }}" method="POST" style="display:inline;">
+                            <button type="submit" class="admin-btn-table decline-btn">Decline</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2 style="margin-top: 40px;">Approved Addons</h2>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>Title</th>
+                    <th>Version</th>
+                    <th>Approval Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in approved %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[6] }}</td>
+                    <td>{{ app[11] }}</td>
+                    <td class="action-cell">
+                        <form action="{{ url_for('remove_addon_by_title') }}" method="POST" onsubmit="return confirm('This will remove the addon from everywhere. Are you sure?');">
+                            <input type="hidden" name="title" value="{{ app[1] }}">
+                            <button type="submit" class="admin-btn-table remove-btn">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
