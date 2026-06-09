@@ -1,0 +1,63 @@
+<!--developer_main.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Developer Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="dev-dashboard-body">
+    <div class="dev-header">
+        <h1 class="dev-welcome-title">Welcome, {{ username }}!</h1>
+        <div class="dev-nav-buttons">
+            <a href="/propose_addon" class="dev-btn propose-btn"><i class="fas fa-plus-circle"></i> Propose Addon</a>
+            <a href="/login" class="dev-btn logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </div>
+    <div class="dev-main-content">
+        <h2 class="dev-table-title">My Addon Submissions</h2>
+        <div class="dev-table-container">
+            <table class="dev-table">
+                <thead>
+                    <tr>
+                        <th>No.</th>
+                        <th>Title</th>
+                        <th>Version</th>
+                        <th>Required For</th>
+                        <th>Dependent On</th>
+                        <th>Date of Proposal</th>
+                        <th>Date of Approval</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for submission in submissions %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ submission[1] }}</td> <!-- title -->
+                        <td>{{ submission[2] }}</td> <!-- version -->
+                        <td>{{ submission[3] or 'N/A' }}</td> <!-- required_for -->
+                        <td>{{ submission[4] or 'N/A' }}</td> <!-- dependent_on (now a title) -->
+                        <td>{{ submission[5] }}</td> <!-- proposed_date -->
+
+                        <td>
+                            {% if submission[7] == 'declined' %}
+                                Denied
+                            {% else %}
+                                {{ submission[6] or 'Pending' }}
+                            {% endif %}
+                        </td>
+                        <td class="status-cell status-{{ submission[7]|lower }}">{{ submission[7] }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="empty-table-message">You have not submitted any add-ons yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
