@@ -1,0 +1,99 @@
+<!--propose_addon.html-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Propose Addon</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="dev-dashboard-body">
+
+    <div class="dev-header">
+        <h1 class="dev-welcome-title">Propose an Addon</h1>
+        <div class="dev-nav-buttons">
+            <a href="{{ url_for('developer_main') }}" class="dev-btn back-btn"><i class="fas fa-arrow-left"></i> My Submissions</a>
+            <a href="{{ url_for('login') }}" class="dev-btn logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </div>
+
+    <div class="proposal-form-container">
+        <form method="POST" enctype="multipart/form-data">
+
+            {% if error %}
+                <div class="proposal-error">{{ error }}</div>
+            {% endif %}
+
+            <!-- Core Information -->
+            <div class="form-group">
+                <label for="title">Addon Title</label>
+                <input type="text" id="title" name="title" placeholder="e.g., Gatwick Airport Scenery" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" rows="4" placeholder="Describe what your addon does..." required></textarea>
+            </div>
+
+            <!-- File Uploads -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="image_file">Promotional Image (.jpg only)</label>
+                    <input type="file" id="image_file" name="image_file" accept=".jpg" required>
+                </div>
+                <div class="form-group">
+                    <label for="model_file">Addon File (.zip only)</label>
+                    <input type="file" id="model_file" name="model_file" accept=".zip" required>
+                </div>
+            </div>
+
+            <!-- Metadata -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="version">Version</label>
+                    <input type="text" id="version" name="version" placeholder="e.g., 1.1.0" required>
+                </div>
+                <div class="form-group">
+                    <label for="min_msfs_version">Min. MSFS Version</label>
+                    <input type="text" id="min_msfs_version" name="min_msfs_version" placeholder="e.g., 1.29" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" name="category" required>
+                        <option value="livery">Livery</option>
+                        <option value="aircraft">Aircraft</option>
+                        <option value="scenery">Scenery</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Dependencies -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dependent_on">Dependent On (Optional)</label>
+                    <select id="dependent_on" name="dependent_on">
+                        <option value="">None</option>
+                        {% for addon_title in all_addons %}
+                            <option value="{{ addon_title }}">{{ addon_title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="required_for">Required For (Optional)</label>
+                    <select id="required_for" name="required_for">
+                        <option value="">None</option>
+                         {% for addon_title in no_dependency_addons %}
+                            <option value="{{ addon_title }}">{{ addon_title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group submit-group">
+                <button type="submit" class="dev-btn propose-btn">Submit Proposal</button>
+            </div>
+        </form>
+    </div>
+
+</body>
+</html>
