@@ -1,0 +1,46 @@
+<!--admin_developers.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Developers</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="admin-body">
+    <div class="admin-header">
+        <h1>Manage Developers</h1>
+        <div>
+            <a href="/admin_main" class="admin-btn main-menu-btn">Main Menu</a>
+            <a href="/login" class="admin-btn logout-btn">Logout</a>
+        </div>
+    </div>
+    <div class="admin-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dev in developers %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ dev[1] }}</td>
+                    <td>{{ dev[2] }}</td>
+                    <td>{{ dev[3] }}</td>
+                    <td>{{ dev[4] }}</td>
+                    <td class="action-cell">
+                        <a href="{{ url_for('view_developer_library', dev_id=dev[0]) }}" class="admin-btn-table view-btn">See Submissions</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
