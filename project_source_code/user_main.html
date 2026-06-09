@@ -1,0 +1,98 @@
+<!--user_main.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Browse Addons</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+<nav class="nav-solid">
+  <div class="nav-logo">
+    <p><i class="fas fa-plane"></i> MSFS Addon Manager</p>
+  </div>
+  <div class="nav-buttons">
+    {% if session.get('user_id') %}
+      <a href="/mylib_{{ session.get('user_id') }}" class="nav-btn library-link">
+        <i class="fas fa-user-circle"></i> My Library
+      </a>
+      <a href="{{ url_for('aircraft_comparison') }}" class="nav-btn compare-link">
+        <i class="fas fa-chart-bar"></i> Compare Aircraft
+      </a>
+      <a href="{{ url_for('login') }}" class="nav-btn logout-link">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </a>
+    {% else %}
+      <a href="{{ url_for('login') }}" class="nav-btn library-link">Login</a>
+    {% endif %}
+  </div>
+</nav>
+
+<div class="main-content">
+  <h1 class="page-title">Available Add-ons</h1>
+  <h2 class="welcome-message">Welcome, {{ username }}!</h2>
+
+  {% if addons %}
+  <div class="addons-grid">
+    {% for addon in addons %}
+    <div class="addon-card">
+      {% if addon[5] %}
+        <img src="{{ url_for('static', filename=addon[5]) }}" alt="{{ addon[2] }} image" class="addon-image">
+      {% else %}
+        <div class="no-image-placeholder">
+          <i class="fas fa-plane" style="font-size: 48px; color: #3b82f6;"></i>
+        </div>
+      {% endif %}
+      <h2 class="addon-title">{{ addon[2] }}</h2>
+      <p class="addon-description">{{ addon[3] }}</p>
+      <div class="addon-meta">
+        <span class="badge category">{{ addon[6] }}</span>
+        <span class="badge version">Version: {{ addon[7] }}</span>
+        <span class="badge count">Downloads: {{ addon[12] or 0 }}</span>
+        <span class="badge developer"><i class="fas fa-user-cog"></i> {{ addon[10] }}</span>
+      </div>
+
+      <button class="add-btn" onclick="addToLibrary('{{ addon[1] }}')">
+        <i class="fas fa-plus"></i> Add to Library
+      </button>
+
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-folder-open" style="font-size: 64px; color: #9ca3af; margin-bottom: 20px;"></i>
+    <h2>No Add-ons Available</h2>
+    <p>No add-ons have been uploaded yet. Check back soon!</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function addToLibrary(addonId) {
+  fetch('/simple_add_to_library', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ addon_id: addonId })
+  })
+  .then(res => res.json())
+  .then(data => showToast(data.message || "Something went wrong."))
+  .catch(() => showToast("Error connecting to server."));
+}
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 50);
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 500); }, 2500);
+}
+</script>
+
+<div class="footer-text">
+  <p><i class="fas fa-cogs"></i> Manage your add-ons seamlessly from your personal library!</p>
+</div>
+</body>
+</html>
