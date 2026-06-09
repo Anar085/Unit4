@@ -191,7 +191,7 @@ def detect_cycles(self):
 
 ```
 
-This function first defines **visited** and **rec_stack** sets and a **cycles** list. There is an inner recursive function **dfs_cycle_detect()** to implement Depth-First Search (DFS) which inputs **node** and **path**. First, by an `if`-statement, it checks if the current **node** is already in **rec_stack** to verify whether that **node** is part of the current traversal path. If so, first it gets the start index of the cycle by the built-in function **index()**. Then, by using *list slicing* in `path[cycle_start:]`, it extracts the part of **path**, starting from index **cycle_start** till the end (as the destination index is not mentioned). By using `+ [node]`, it appends the current node to the end to visualize the cycle (for example: `A->B->C->A`). It then uses an `if`-statement to avoid redundant visits. Through the next three lines, the function maintains the state of traversal in DFS. Then, by using a `for`-loop and the **.get()** method—which is a safe way to access the dictionary **self.graph** where keys are nodes and values are a `set` of its dependencies—as instead of a `KeyError` it returns the default value `set`, it iterates over all nodes that the current node depends on. Then, as the main part of DFS, I used an `if`-statement to recursively call the function **dfs_cycle_detect()** on every neighbor of the main node. The function **dfs_cycle_detect()** finalizes after exiting the node and clearing the path history. Ultimately, the function **detect_cycles()** finalizes by implementing DFS for each unvisited node using a `for`-loop and returning the list of detected cycles.
+This function first defines **visited** and **rec_stack** sets and a **cycles** list. There is an inner recursive function **dfs_cycle_detect()** to implement Depth-First Search (DFS) which inputs **node** and **path**. First, by an `if`-statement, it checks if the current **node** is already in **rec_stack** to verify whether that **node** is part of the current traversal path. If so, first it gets the start index of the cycle by the built-in function **index()**. Then, by using *list slicing* in `path[cycle_start:]`, it extracts the part of **path**, starting from index **cycle_start** till the end (as the destination index is not mentioned). By using `+ [node]`, it appends the current node to the end to visualize the cycle (for example: `A->B->C->A`). It then uses an `if`-statement to avoid redundant visits. Through the next three lines, the function maintains the state of traversal in DFS. Then, by using a `for`-loop and the **.get()** method-which is a safe way to access the dictionary **self.graph** where keys are nodes and values are a `set` of its dependencies-as instead of a `KeyError` it returns the default value `set`, it iterates over all nodes that the current node depends on. Then, as the main part of DFS, I used an `if`-statement to recursively call the function **dfs_cycle_detect()** on every neighbor of the main node. The function **dfs_cycle_detect()** finalizes after exiting the node and clearing the path history. Ultimately, the function **detect_cycles()** finalizes by implementing DFS for each unvisited node using a `for`-loop and returning the list of detected cycles.
 
 <img width="979" height="847" alt="cs_ia_3" src="https://github.com/user-attachments/assets/acc4c303-ab7e-42de-a021-b2a7c5106165" />
 
@@ -202,8 +202,9 @@ This function first defines **visited** and **rec_stack** sets and a **cycles** 
 **Figure 8** *This flowchart represents the `detect_cycles()` function from `Dependency_Graph` class, which detects dependency cycles in a graph using depth-first search (DFS).*
 
 
-[^9]: https://www.geeksforgeeks.org/graph-theory-tutorial/.
-[^10]: https://kivy.org/doc/stable/api-kivy.properties.html](https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/.
+[^9]: GeeksforGeeks. “Graph Theory Tutorial.” GeeksforGeeks, https://www.geeksforgeeks.org/graph-theory-tutorial/. 
+[^10]: "Depth First Search or DFS for a Graph." GeeksforGeeks, 27 April 2023, https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/.
+
 
 
 ### 2.  *Multi-Step Installation workflow*
@@ -394,8 +395,29 @@ if (result.status === 'removed') {
 
 Through these fundamental interactions the system completes as a whole: the frontend handles user interaction and the backend handles logic and database CRUD operations. 
 
-[^11]: https://reqbin.com/code/javascript/wc3qbk0b/javascript-fetch-json-example. 
-[^12]: https://aws.amazon.com/blogs/business-intelligence/visualize-multivariate-data-using-a-radar-chart-in-amazon-quicksight/.
-[^13]: www.cs.middlebury.edu/~candrews/showcase/infovis_techniques_s16/radar_chart/.
-[^14]: https://blog.cambridgecoaching.com/converting-polar-to-cartesian-equations-in-five-easy-steps. 
+[^11]: ReqBin. “JavaScript Fetch JSON Example.” ReqBin, https://reqbin.com/code/javascript/wc3qbk0b/javascript-fetch-json-example. 
+[^12]: Amazon Web Services. “Visualize Multivariate Data Using a Radar Chart in Amazon QuickSight.” AWS News Blog, 6 Oct. 2022, https://aws.amazon.com/blogs/business-intelligence/visualize-multivariate-data-using-a-radar-chart-in-amazon-quicksight/.
+[^13]: Andrews, Chris. “Radar Chart.” Middlebury College Computer Science Showcase, 2016, www.cs.middlebury.edu/~candrews/showcase/infovis_techniques_s16/radar_chart/.
+[^14]: "Converting Polar to Cartesian Equations in Five Easy Steps." Cambridge Coaching Blog, https://blog.cambridgecoaching.com/converting-polar-to-cartesian-equations-in-five-easy-steps .  
+
+
+
+# Criteria D: Functionality - showcase of actual product
+
+[![Watch the App Showcase Video on YouTube]](https://youtu.be/OCr8RvXaiYE)
+
+
+# Criteria E: Evaluation
+
+## Evaluation of the product
+
+The final product successfully meets all 6 SCs from the perspective of both client and developer. Authentication allows users, developers, administrators safely to sign up and login **(SC1)**. Users are able to browse addons that are proposed by developers and verified by administrators and have their personal libraries managing add-ons **(SC2)**. The conflict resolver system in personal libraries corrects all possible error cases and suggests clear solutions **(SC3)**. Aircraft comparison, using a radar chart comparing two aircraft, successfully minimizes guesswork **(SC4)**. Developers can propose add-ons and track their portfolio easily **(SC5)**. Administrators can manage users, developers, and add-ons (approving/declining submissions from developers). 
+
+
+## Recommendations for Further Development
+
+However, especially when expansion and scaling are considered, the product has some limitations: workflow state is mainly on the client side which is vulnerable if refreshes or connection loss happen; dependency relationships are given as strings in database which requires extra handling; security mechanisms such as file validations and admin encryption are limited to the prototype’s environment; versions are compared using simple strings and float which don’t support semantic versioning; dependency resolution loads all relationships right now which is not efficient as the system expands. 
+Here are several solutions: developing the installation process as atomic database transactions to prevent mid-operation failures; for expansion, migrating to PostgreSQL from SQLite to prevent database being locked during multiple users; shift workflow to the client-side to prevent client desynchronization; introduce stricter requirements for file size and validation.
+
+
 
