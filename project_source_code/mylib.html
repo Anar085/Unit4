@@ -1,0 +1,292 @@
+<!--mylib.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Add-on Library</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .dialog-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:1000}.dialog-box{background:white;padding:30px;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,0.3);width:90%;max-width:450px;text-align:center}.dialog-title{margin-top:0;color:#333}.dialog-text{color:#666;line-height:1.6;margin-bottom:25px}.dialog-buttons{display:flex;justify-content:center;gap:15px}.dialog-btn{padding:10px 20px;border:none;border-radius:5px;cursor:pointer;font-weight:500;background-color:#3b82f6;color:white;transition:background-color .2s}.dialog-btn:hover{background-color:#1d4ed8}.dialog-btn.close-btn{background-color:#6c757d}.dialog-btn.close-btn:hover{background-color:#5a6268}
+    </style>
+</head>
+<body class="library-body">
+
+    <div class="library-header">
+        <h1>Welcome to your library, {{ username }}!</h1>
+        <div class="library-nav-buttons">
+            <a href="{{ url_for('user_main') }}" class="library-btn library-back-btn"><i class="fas fa-arrow-left"></i> Back to Main Page</a>
+        </div>
+    </div>
+
+    <div class="library-container">
+        <!--"In Queue" Table-->
+        <h2 class="library-table-title">In Queue</h2>
+        <div class="library-table-container">
+            <table id="inQueueTable" class="library-table">
+                <thead>
+                    <tr><th>Title</th><th>Category</th><th>Version</th><th>Min MSFS Version</th><th>Date Added</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for addon in in_queue %}
+                    <tr id="addon-{{ addon[0] }}" class="data-row">
+                        <td>{{ addon[1] }}</td><td>{{ addon[2] }}</td><td>{{ addon[3] }}</td><td>{{ addon[4] }}</td><td>{{ addon[5] }}</td>
+                        <td class="action-cell">
+                            <button class="action-btn install-btn" onclick="startInstallProcess({{ addon[0] }})">Install</button>
+                            <button class="action-btn remove-btn" onclick="updateAddon({{ addon[0] }}, 'remove')">Remove</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr class="empty-table-message-row"><td colspan="6" class="empty-table-message">No add-ons in your queue.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!--"Installed" Table-->
+        <h2 class="library-table-title">Installed</h2>
+        <div class="library-table-container">
+            <table id="installedTable" class="library-table">
+                 <thead>
+                    <tr><th>Title</th><th>Category</th><th>Version</th><th>Min MSFS Version</th><th>Date Added</th><th>Date Installed</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for addon in installed %}
+                    <tr id="addon-{{ addon[0] }}" class="data-row">
+                        <td>{{ addon[1] }}</td><td>{{ addon[2] }}</td><td>{{ addon[3] }}</td><td>{{ addon[4] }}</td><td>{{ addon[5] }}</td><td>{{ addon[6] }}</td>
+                        <td class="action-cell">
+                            <button class="action-btn uninstall-btn" onclick="updateAddon({{ addon[0] }}, 'uninstall')">Uninstall</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr class="empty-table-message-row"><td colspan="7" class="empty-table-message">No add-ons installed.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    //Global variable to keep track of the addon being installed
+    let currentInstallingId = null;
+
+    //SIMPLE ACTIONS (FOR REMOVE/UNINSTALL)
+    async function updateAddon(userLibraryId, action) {
+        const row = document.getElementById(`addon-${userLibraryId}`);
+        if (!row) return;
+        try {
+            const response = await fetch('/simple_update_library', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action, addon_id: userLibraryId })
+            });
+            const result = await response.json();
+            if (result.status === 'removed') {
+                row.remove();
+                checkAllTables();
+            } else {
+                showToast(result.error || "An unknown error occurred.");
+            }
+        } catch (e) {
+            showToast("Error connecting to the server.");
+        }
+    }
+
+    //COMPLEX INSTALL PROCESS
+    //1.Entry Point
+    function startInstallProcess(userLibraryId) {
+        currentInstallingId = userLibraryId;
+        sendInstallStep('version_check', { user_library_id: userLibraryId });
+    }
+
+    //2.Central function to talk to the backend for checks
+    async function sendInstallStep(step, payload) {
+        try {
+            const response = await fetch('/install_step', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ step: step, ...payload })
+            });
+            const result = await response.json();
+            if (result.error) { showToast(result.error); return; }
+            handleBackendResponse(result, payload.user_library_id);
+        } catch (e) { showToast("Error connecting to the server."); }
+    }
+
+    //3.Decides which dialog to show based on backend check results
+    function handleBackendResponse(result, userLibraryId) {
+        if (result.next_step === 'user_confirm_dependency_versions') {
+            runUserDependencyVersionChecks(result.dependency_chain, userLibraryId);
+            return;
+        }
+        if (result.dialog) {
+            if (result.next_step === 'install') {
+                showDialog({
+                    title: result.dialog.title,
+                    text: result.dialog.text,
+                    buttons: [
+                        {
+                            text: result.dialog.buttons[0],
+                            action: () => installAddonChain(result.addons_to_install)
+                        },
+                        { text: result.dialog.buttons[1] || 'Close', isClose: true }
+                    ]
+                });
+            } else {
+                //This handles the intermediate steps like version and dependency checks
+                showDialog({
+                    title: result.dialog.title,
+                    text: result.dialog.text,
+                    buttons: [
+                        {
+                            text: result.dialog.buttons[0],
+                            action: () => {
+                                if (result.next_step) {
+                                    sendInstallStep(result.next_step, {
+                                        user_library_id: userLibraryId,
+                                        addons_to_check: result.addons_to_check
+                                    });
+                                }
+                            }
+                        },
+                        { text: result.dialog.buttons[1] || 'Close', isClose: true }
+                    ]
+                });
+            }
+        }
+    }
+
+    //4.Handles the interactive dependency version check
+    async function runUserDependencyVersionChecks(chain, userLibraryId) {
+        const userMsfsVersion = parseFloat({{ user_msfs_version | tojson }});
+        for (const dep of chain) {
+            const depTitle = dep[2];
+            const minMsfs = parseFloat(dep[8]);
+            if (userMsfsVersion < minMsfs) {
+                const userChoice = await showPromiseDialog({
+                    title: "Version Mismatch",
+                    text: `Dependency '${depTitle}' requires MSFS ${minMsfs}. Proceed with checks?`,
+                    buttons: ["Proceed", "Cancel"]
+                });
+                if (userChoice === 'Cancel') return;
+            }
+        }
+        const finalChoice = await showPromiseDialog({
+            title: "Version Checks Complete",
+            text: "All dependency version checks are complete. Install required addons?",
+            buttons: ["Install", "Cancel"]
+        });
+        if (finalChoice === 'Install') {
+            sendInstallStep('library_check', { user_library_id: userLibraryId, addons_to_check: chain });
+        }
+    }
+
+    //5.The final installation function
+    async function installAddonChain(addonsToInstall) {
+        if (!addonsToInstall || addonsToInstall.length === 0) { return; }
+        try {
+            const response = await fetch('/install_step', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    step: 'install',
+                    addons_to_install: addonsToInstall,
+                    user_library_id: currentInstallingId //Use the stored global ID
+                })
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                showToast(data.message || "All required addons have been installed successfully!");
+                if (data.download_urls && data.download_urls.length > 0) {
+                    data.download_urls.forEach((url, index) => {
+                        setTimeout(() => {
+                            const iframe = document.createElement('iframe');
+                            iframe.style.display = 'none';
+                            iframe.src = url;
+                            document.body.appendChild(iframe);
+
+                            // cleanup later
+                            setTimeout(() => iframe.remove(), 10000);
+                        }, index * 800);
+                    });
+                }
+                setTimeout(() => window.location.reload(), 1500 + ((data.download_urls || []).length * 800));
+            } else {
+                showToast(data.error || 'Installation failed.');
+            }
+        } catch (e) {
+            showToast("Error connecting to the server for installation.");
+        }
+    }
+
+// UI helper functions
+function showPromiseDialog({ title, text, buttons }) {
+    return new Promise(resolve => {
+        const oldDialog = document.getElementById('custom-dialog');
+        if (oldDialog) oldDialog.remove();
+        const dialog = document.createElement('div');
+        dialog.id = 'custom-dialog';
+        dialog.className = 'dialog-overlay';
+        let buttonsHTML = '';
+        buttons.forEach(btnText => {
+            buttonsHTML += `<button class="dialog-btn">${btnText}</button>`;
+        });
+        dialog.innerHTML = `<div class="dialog-box"><h2 class="dialog-title">${title}</h2><p class="dialog-text">${text}</p><div class="dialog-buttons">${buttonsHTML}</div></div>`;
+        document.body.appendChild(dialog);
+        dialog.querySelectorAll('.dialog-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                dialog.remove();
+                resolve(btn.textContent);
+            });
+        });
+    });
+}
+
+function showDialog({ title, text, buttons }) {
+    const oldDialog = document.getElementById('custom-dialog');
+    if (oldDialog) oldDialog.remove();
+    const dialog = document.createElement('div');
+    dialog.id = 'custom-dialog';
+    dialog.className = 'dialog-overlay';
+    let buttonsHTML = '';
+    buttons.forEach(btnConfig => {
+        buttonsHTML += `<button class="dialog-btn ${btnConfig.isClose ? 'close-btn' : ''}">${btnConfig.text}</button>`;
+    });
+    dialog.innerHTML = `<div class="dialog-box"><h2 class="dialog-title">${title}</h2><p class="dialog-text">${text}</p><div class="dialog-buttons">${buttonsHTML}</div></div>`;
+    document.body.appendChild(dialog);
+    dialog.querySelectorAll('.dialog-btn').forEach((btn, index) => {
+        btn.addEventListener('click', () => {
+            if (buttons[index].action) {
+                buttons[index].action();
+            }
+            dialog.remove();
+        });
+    });
+}
+
+function showToast(message) {
+    const existingToast = document.querySelector('.toast');
+    if (existingToast) existingToast.remove();
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 50);
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 500); }, 2500);
+}
+
+function checkAllTables() {
+    //This helper is for the remove/uninstall buttons
+    const queueTableBody = document.getElementById("inQueueTable").getElementsByTagName('tbody')[0];
+    const installedTableBody = document.getElementById("installedTable").getElementsByTagName('tbody')[0];
+    const queueHasData = queueTableBody.querySelector('tr.data-row');
+    const queueEmptyRow = queueTableBody.querySelector('.empty-table-message-row');
+    if (queueEmptyRow) { queueEmptyRow.style.display = queueHasData ? 'none' : 'table-row'; }
+    const installedHasData = installedTableBody.querySelector('tr.data-row');
+    const installedEmptyRow = installedTableBody.querySelector('.empty-table-message-row');
+    if (installedEmptyRow) { installedEmptyRow.style.display = installedHasData ? 'none' : 'table-row'; }
+}
+</script>
+</body>
+</html>
