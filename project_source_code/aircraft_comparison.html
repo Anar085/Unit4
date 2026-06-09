@@ -1,0 +1,177 @@
+<!--aircraft_comparison.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF--8">
+    <title>Aircraft Comparison</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body class="comparison-body">
+
+    <div class="comparison-header">
+        <a href="{{ url_for('user_main') }}" class="nav-btn main-menu-btn">Main Menu</a>
+        <div class="title">Compare the 10 Most Used Aircrafts in MSFS for a Better Choice!</div>
+        <a href="{{ url_for('login') }}" class="nav-btn logout-btn">Logout</a>
+    </div>
+
+    <div class="comparison-main-content">
+        <!-- Aircraft 1 Panel (Left) -->
+        <div class="comparison-panel aircraft1">
+            <h2>Choose 1st Aircraft</h2>
+            <select id="aircraft1-select">
+                <option value="">-- Select an Aircraft --</option>
+                {% for aircraft in aircrafts %}
+                <option value="{{ aircraft }}">{{ aircraft }}</option>
+                {% endfor %}
+            </select>
+            <ul class="metrics-list">
+                <li>Max Speed (knots): <span id="ac1-max-speed"></span></li>
+                <li>MTOW (lbs): <span id="ac1-mtow"></span></li>
+                <li>Fuel Capacity (gal): <span id="ac1-fuel-capacity"></span></li>
+                <li>Range (nm): <span id="ac1-range"></span></li>
+                <li>Climb Rate (ft/min): <span id="ac1-climb-rate"></span></li>
+            </ul>
+            <div class="image-container" id="ac1-image-container"></div>
+        </div>
+
+        <!-- Radar Chart Container(Center)-->
+        <div id="chartContainer"></div>
+
+        <!-- Aircraft 2 Panel(Right)-->
+        <div class="comparison-panel aircraft2">
+            <h2>Choose 2nd Aircraft</h2>
+            <select id="aircraft2-select">
+                <option value="">-- Select an Aircraft --</option>
+                {% for aircraft in aircrafts %}
+                <option value="{{ aircraft }}">{{ aircraft }}</option>
+                {% endfor %}
+            </select>
+            <ul class="metrics-list">
+                <li>Max Speed (knots): <span id="ac2-max-speed"></span></li>
+                <li>MTOW (lbs): <span id="ac2-mtow"></span></li>
+                <li>Fuel Capacity (gal): <span id="ac2-fuel-capacity"></span></li>
+                <li>Range (nm): <span id="ac2-range"></span></li>
+                <li>Climb Rate (ft/min): <span id="ac2-climb-rate"></span></li>
+            </ul>
+            <div class="image-container" id="ac2-image-container"></div>
+        </div>
+    </div>
+<script>
+    const globalMinMax = {{ min_max_data | tojson }};
+
+    let aircraft1_data = null;
+    let aircraft2_data = null;
+
+    const attributes = ['maxSpeed', 'mtow', 'fuelCapacity', 'range', 'climbRate'];
+    const attributeLabels = {
+        maxSpeed: 'Max Speed',
+        mtow: 'MTOW',
+        fuelCapacity: 'Fuel Capacity',
+        range: 'Range',
+        climbRate: 'Climb Rate' // UPDATED
+    };
+
+    document.getElementById('aircraft1-select').addEventListener('change', (e) => {
+        fetchAircraftData(1, e.target.value);
+    });
+    document.getElementById('aircraft2-select').addEventListener('change', (e) => {
+        fetchAircraftData(2, e.target.value);
+    });
+
+    async function fetchAircraftData(aircraftNum, aircraftName) {
+        if (!aircraftName) {
+            if (aircraftNum === 1) aircraft1_data = null;
+            else aircraft2_data = null;
+            updateUI(aircraftNum, null);
+            updateRadarChart();
+            return;
+        }
+        const response = await fetch(`/get_aircraft_data/${aircraftName}`);
+        const data = await response.json();
+        if (data.error) {
+            console.error(data.error);
+            return;
+        }
+        if (aircraftNum === 1) aircraft1_data = data;
+        else aircraft2_data = data;
+        updateUI(aircraftNum, data);
+        updateRadarChart();
+    }
+
+    function updateUI(aircraftNum, data) {
+        const prefix = `ac${aircraftNum}`;
+        document.getElementById(`${prefix}-max-speed`).textContent = data ? data.maxSpeed : '';
+        document.getElementById(`${prefix}-mtow`).textContent = data ? data.mtow : '';
+        document.getElementById(`${prefix}-fuel-capacity`).textContent = data ? data.fuelCapacity : '';
+        document.getElementById(`${prefix}-range`).textContent = data ? data.range : '';
+        document.getElementById(`${prefix}-climb-rate`).textContent = data ? data.climbRate : ''; // UPDATED
+
+        const imageContainer = document.getElementById(`${prefix}-image-container`);
+        imageContainer.innerHTML = '';
+        if (data && data.imageFilename) {
+            const img = document.createElement('img');
+            img.src = `/static/${data.imageFilename}`;
+            img.alt = data.name;
+            imageContainer.appendChild(img);
+        }
+    }
+
+    function normalizeData(data) {
+       if (!data) return null;
+       const normalized = { ...data };
+       attributes.forEach(attr => {
+           const max = globalMinMax[attr].max;
+           const value = data[attr];
+           const normalizedValue = max > 0 ? (value / max) : 0; // Avoid division by zero
+           normalized[`${attr}_percent`] = Math.round(normalizedValue * 100);
+       });
+       return normalized;
+    }
+
+    function updateRadarChart() {
+        d3.select('#chartContainer svg').remove();
+        if (!aircraft1_data || !aircraft2_data) {
+            return;
+        }
+        const normalized1 = normalizeData(aircraft1_data);
+        const normalized2 = normalizeData(aircraft2_data);
+        const dataForChart = [
+            { name: normalized1.name, color: '#d9534f', values: attributes.map(attr => ({ value: normalized1[`${attr}_percent`] })) },
+            { name: normalized2.name, color: '#0275d8', values: attributes.map(attr => ({ value: normalized2[`${attr}_percent`] })) }
+        ];
+        const width = 500, height = 500;
+        const margin = { top: 60, right: 60, bottom: 60, left: 60 };
+        const radius = Math.min(width, height) / 2 - margin.top;
+        const angleSlice = Math.PI * 2 / attributes.length;
+        const svg = d3.select('#chartContainer').append('svg')
+            .attr('width', width).attr('height', height)
+            .append('g').attr('transform', `translate(${width / 2}, ${height / 2})`);
+        const radialScale = d3.scaleLinear().domain([0, 100]).range([0, radius]);
+        const grid = svg.append("g");
+        const levels = 10;
+        const levelTicks = d3.range(0, levels + 1).map(i => (100 / levels) * i);
+        grid.selectAll(".grid-circle").data(levelTicks.reverse()).enter().append("circle")
+            .attr("r", d => radialScale(d)).style("fill", "#CDCDCD")
+            .style("stroke", "#CDCDCD").style("fill-opacity", 0.1);
+        grid.selectAll(".axis-line").data(attributes).enter().append("line")
+            .attr("x1", 0).attr("y1", 0)
+            .attr("x2", (d, i) => Math.cos(angleSlice * i - Math.PI / 2) * radius)
+            .attr("y2", (d, i) => Math.sin(angleSlice * i - Math.PI / 2) * radius)
+            .style("stroke", "white").style("stroke-width", "2px");
+        const labels = svg.append("g");
+        labels.selectAll(".axis-label").data(attributes).enter().append("text")
+            .attr("class", "axis-label")
+            .attr("x", (d, i) => Math.cos(angleSlice * i - Math.PI / 2) * (radius * 1.1))
+            .attr("y", (d, i) => Math.sin(angleSlice * i - Math.PI / 2) * (radius * 1.1))
+            .attr("text-anchor", "middle").text(d => attributeLabels[d]);
+        const line = d3.lineRadial()
+            .radius(d => radialScale(d.value)).angle((d, i) => i * angleSlice)
+            .curve(d3.curveLinearClosed);
+        svg.selectAll(".radar-area").data(dataForChart).enter().append("path")
+            .attr("d", d => line(d.values)).style("fill", d => d.color)
+            .style("fill-opacity", 0.4).style("stroke", d => d.color).style("stroke-width", "2px");
+    }
+</script>
+</body>
+</html>
